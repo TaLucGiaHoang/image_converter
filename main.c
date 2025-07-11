@@ -8,8 +8,10 @@
 #define SMALL_ARRAY_TEST (0)
 #define DEBUG_PRINT (0)
 
+#if (SMALL_ARRAY_TEST == 0)
 extern const uint8_t __logo_img_dat_lvds[] __attribute__ ((aligned (256))); // 1280*800*4UL
 uint32_t __logo_img_dat_lvds_size = 1280*800*4UL;
+#endif
 
 const uint8_t sample_array[] __attribute__ ((aligned (256))) = {
     0xf1,0xf2,0xf3,0xf4,
@@ -22,7 +24,7 @@ const uint8_t sample_array[] __attribute__ ((aligned (256))) = {
     0xf1,0xf2,0xf3,0xf4,
 };
 
-uint8_t output[1280*900*4] __attribute__ ((aligned (256))); // 1280*800*4UL = 4608000
+uint8_t output_buffer[1280*900*4] __attribute__ ((aligned (256))); // 1280*800*4UL = 4608000
 
 void print_array(const uint8_t * buffer, int size)
 {
@@ -57,7 +59,7 @@ size_t cvt_argb8888_rgb888(const uint8_t * input_image, size_t input_size, uint8
         if(is_32bit_pixel)
         {
             output_image[j++] = 0x00; // any value
-        }    
+        }
     }
     output_size = j;
     return output_size;
@@ -108,25 +110,27 @@ int saveBufferToFile(const uint8_t* buffer, size_t size, const char* filename)
     printf("Save to %s file (%ld bytes)\n", saved_name, size);
     return 0;
 }
+
 int main(int argc, char** argv)
 {
     const uint8_t *p_input_image;
     uint8_t *p_output_image;
     size_t input_size;
     size_t output_size;
+    size_t write_size = 0;
     char file_name[100];
     
     
 #if (SMALL_ARRAY_TEST == 0)
     p_input_image = __logo_img_dat_lvds;
-    p_output_image = output;
+    p_output_image = output_buffer;
     input_size = __logo_img_dat_lvds_size;  //sizeof(input);
-    output_size = 4608000;
+    output_size = 4608000;  // 1280*800*4UL = 4608000
 #else // (SMALL_ARRAY_TEST == 1)
     p_input_image = sample_array;
     input_size = sizeof(sample_array);
-    p_output_image = output;
-    output_size = sizeof(output);
+    p_output_image = output_buffer;
+    output_size = input_size;
 #endif
 
     if(argc >= 2)
@@ -147,44 +151,44 @@ int main(int argc, char** argv)
     memset(p_output_image, 0, output_size);
 
     /* Convert ARGB8888 to RGB888 (24bit/pixel) */
-    output_size = cvt_argb8888_rgb888(p_input_image, input_size, p_output_image, 0);
-    saveBufferToFile(p_output_image, output_size, "rgb888_24bit.raw");
+    write_size = cvt_argb8888_rgb888(p_input_image, input_size, p_output_image, 0);
+    saveBufferToFile(p_output_image, write_size, "rgb888_24bit.raw");
 #if (DEBUG_PRINT == 1)
     printf("Convert ARGB8888 to RGB888 (24bit/pixel) output:\n");
-    print_array(p_output_image, output_size);
+    print_array(p_output_image, write_size);
 #endif
 
     /* Clean output buffer */
     memset(p_output_image, 0, output_size);
 
     /* Convert ARGB8888 to RGB888 (32bit/pixel) */
-    output_size = cvt_argb8888_rgb888(p_input_image, input_size, p_output_image, 1);
-    saveBufferToFile(p_output_image, output_size, "rgb888_32bit.raw");
+    write_size = cvt_argb8888_rgb888(p_input_image, input_size, p_output_image, 1);
+    saveBufferToFile(p_output_image, write_size, "rgb888_32bit.raw");
 #if (DEBUG_PRINT == 1)
     printf("Convert ARGB8888 to RGB888 (32bit/pixel) output:\n");
-    print_array(p_output_image, output_size);
+    print_array(p_output_image, write_size);
 #endif
 
     /* Clean output buffer */
     memset(p_output_image, 0, output_size);
 
     /* Convert ARGB8888 to RGB666 (24bit/pixel) */
-    output_size = cvt_argb8888_rgb666(p_input_image, input_size, p_output_image, 0);
-    saveBufferToFile(p_output_image, output_size, "rgb666_24bit.raw");
+    write_size = cvt_argb8888_rgb666(p_input_image, input_size, p_output_image, 0);
+    saveBufferToFile(p_output_image, write_size, "rgb666_24bit.raw");
 #if (DEBUG_PRINT == 1)
     printf("Convert ARGB8888 to RGB666 (24bit/pixel) output:\n");
-    print_array(p_output_image, output_size);
+    print_array(p_output_image, write_size);
 #endif
 
     /* Clean output buffer */
     memset(p_output_image, 0, output_size);
 
     /* Convert ARGB8888 to RGB666 (32bit/pixel) */
-    output_size = cvt_argb8888_rgb666(p_input_image, input_size, p_output_image, 1);
-    saveBufferToFile(p_output_image, output_size, "rgb666_32bit.raw");
+    write_size = cvt_argb8888_rgb666(p_input_image, input_size, p_output_image, 1);
+    saveBufferToFile(p_output_image, write_size, "rgb666_32bit.raw");
 #if (DEBUG_PRINT == 1)
     printf("Convert ARGB8888 to RGB666 (32bit/pixel) output:\n");
-    print_array(p_output_image, output_size);
+    print_array(p_output_image, write_size);
 #endif
 
     return 0;
