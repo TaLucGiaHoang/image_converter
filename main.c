@@ -13,7 +13,7 @@
 //   00000000 bbbbbb00 gggggg00 rrrrrr00            RGB666 32-bit
 //            bbbbbb00 gggggg00 rrrrrr00            RGB666 24-bit
 //                  bb bbbbgggg ggrrrrrr            RGB666 18-bit
-#define RGB666_18BIT    0  // TBD
+#define RGB666_18BIT    0
 #define RGB666_24BIT    1
 #define RGB666_32BIT    2
 
@@ -24,14 +24,23 @@ uint32_t __logo_img_dat_lvds_size = 1280*800*4UL;
 #endif
 
 const uint8_t sample_array[] __attribute__ ((aligned (256))) = {
-    0xf1,0xf2,0xf3,0xf4,
-    0xf1,0xf2,0xf3,0xf4,
-    0xf1,0xf2,0xf3,0xf4,
-    0xf1,0xf2,0xf3,0xf4,
-    0xf1,0xf2,0xf3,0xf4,
-    0xf1,0xf2,0xf3,0xf4,
-    0xf1,0xf2,0xf3,0xf4,
-    0xf1,0xf2,0xf3,0xf4,
+    0xFF,0xFF,0xFF,0x00,
+    0xFF,0xFF,0xFF,0x00,
+    0xFF,0xFF,0xFF,0x00,
+    0xFF,0xFF,0xFF,0x00,
+    0x00,0x00,0x00,0x00,
+    0x00,0x00,0x00,0x00,
+    0x00,0x00,0x00,0x00,
+    0x00,0x00,0x00,0x00,
+
+    // 0x1B,0x2C,0x3D,0x4E,
+    // 0x5B,0x6C,0x7D,0x8E,
+    // 0x9B,0xAC,0xBD,0xCE,
+    // 0xA3,0xB3,0xC3,0xF3,
+    // 0xA4,0xB4,0xC4,0xF4,
+    // 0xA5,0xB5,0xC5,0xF5,
+    // 0xA6,0xB6,0xC6,0xF6,
+    // 0xA7,0xB7,0xC7,0xF7,
 };
 
 uint8_t output_buffer[1280*900*4] __attribute__ ((aligned (256))); // 1280*800*4UL = 4608000
@@ -75,6 +84,46 @@ size_t cvt_argb8888_rgb888(const uint8_t * input_image, size_t input_size, uint8
     return output_size;
 }
 
+size_t process_rgb666_18bit(const uint8_t * input_image, size_t input_size, uint8_t *output_image)
+{
+    size_t output_size = 0;
+    int i = 0, j = 0;
+    printf("(type == RGB666_18BIT)\n");
+    if(input_size % 4)
+    {
+        printf("Error: Input size %ld bytes is not suitable\n", input_size);
+    }
+    
+    while(1)
+    {
+        /* Covert a block of 3 bytes of colors in ARGB8888 ignoring A plane to block of 3 bytes of colors in RGB666 */
+        uint8_t * p_block_3bytes_rgb666_18bit = output_image; // 4 pixels of RGB666 image = 4 * 18 = 72 bits = 9 bytes
+        uint8_t block_4bytes_rgb666_24bit[4];
+
+        memcpy((void*)block_4bytes_rgb666_24bit, (void*)&input_image[i], 4);
+
+        /* Eliminate first 2 bits, example: xxxxxx00 -> 00xxxxxx (right shift 2 bits)*/
+        block_4bytes_rgb666_24bit[0] >>= 2;       // 0 0 b0 b0 b0 b0 b0 b0
+        block_4bytes_rgb666_24bit[1] >>= 2;       // 0 0 g0 g0 g0 g0|g0 g0
+        block_4bytes_rgb666_24bit[2] >>= 2;       // 0 0 r0 r0|r0 r0 r0 r0
+        block_4bytes_rgb666_24bit[3] >>= 2;       // 0 0 b1 b1 b1 b1 b1 b1
+
+        p_block_3bytes_rgb666_18bit[j]   = (uint8_t)(block_4bytes_rgb666_24bit[1] << 6) | (uint8_t)(block_4bytes_rgb666_24bit[0]);       // g0 g0 b0 b0 b0 b0 b0 b0  G0B0
+        p_block_3bytes_rgb666_18bit[j+1] = (uint8_t)(block_4bytes_rgb666_24bit[2] << 4) | (uint8_t)(block_4bytes_rgb666_24bit[1] >> 2);  // r0 r0 r0 r0 g0 g0 g0 g0  R0G0
+        p_block_3bytes_rgb666_18bit[j+2] = (uint8_t)(block_4bytes_rgb666_24bit[3] << 2) | (uint8_t)(block_4bytes_rgb666_24bit[2] >> 4);  // b1 b1 b1 b1 b1 b1 r0 r0  B1R0 
+
+        j += 3;
+        i += 4;
+        if(i >= input_size)
+        {
+            break;
+        }
+    }
+
+    output_size = j;
+    return output_size;
+}
+
 size_t cvt_argb8888_rgb666(const uint8_t * input_image, size_t input_size, uint8_t *output_image, uint8_t select_type)
 {
     size_t output_size = 0;
@@ -95,8 +144,14 @@ size_t cvt_argb8888_rgb666(const uint8_t * input_image, size_t input_size, uint8
             output_image[j++] = 0x00; // any value
         }
     }
-
     output_size = j;
+
+    if(select_type == RGB666_18BIT)
+    {
+        input_size = j;
+        output_size = process_rgb666_18bit(output_image, input_size, output_image);
+    }
+
     return output_size;
 }
 
@@ -202,5 +257,15 @@ int main(int argc, char** argv)
     print_array(p_output_image, write_size);
 #endif
 
+    /* Clean output buffer */
+    memset(p_output_image, 0, output_size);
+
+    /* Convert ARGB8888 to RGB666 (18bit/pixel) */
+    write_size = cvt_argb8888_rgb666(p_input_image, input_size, p_output_image, RGB666_18BIT);
+    saveBufferToFile(p_output_image, write_size, "rgb666_18bit.raw");
+#if (DEBUG_PRINT == 1)
+    printf("Convert ARGB8888 to RGB666 (18bit/pixel) output:\n");
+    print_array(p_output_image, write_size);
+#endif
     return 0;
 }
