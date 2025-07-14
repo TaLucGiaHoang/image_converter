@@ -88,7 +88,7 @@ size_t process_rgb666_18bit(const uint8_t * input_image, size_t input_size, uint
 {
     size_t output_size = 0;
     int i = 0, j = 0;
-    printf("(type == RGB666_18BIT)\n");
+
     if(input_size % 4)
     {
         printf("Error: Input size %ld bytes is not suitable\n", input_size);
