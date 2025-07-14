@@ -102,16 +102,30 @@ size_t process_rgb666_18bit(const uint8_t * input_image, size_t input_size, uint
 
         memcpy((void*)block_4bytes_rgb666_24bit, (void*)&input_image[i], 4);
 
-        /* Eliminate first 2 bits, example: xxxxxx00 -> 00xxxxxx (right shift 2 bits)*/
-        block_4bytes_rgb666_24bit[0] >>= 2;       // 0 0 b0 b0 b0 b0 b0 b0
-        block_4bytes_rgb666_24bit[1] >>= 2;       // 0 0 g0 g0 g0 g0|g0 g0
-        block_4bytes_rgb666_24bit[2] >>= 2;       // 0 0 r0 r0|r0 r0 r0 r0
-        block_4bytes_rgb666_24bit[3] >>= 2;       // 0 0 b1 b1 b1 b1 b1 b1
-
-        p_block_3bytes_rgb666_18bit[j]   = (uint8_t)(block_4bytes_rgb666_24bit[1] << 6) | (uint8_t)(block_4bytes_rgb666_24bit[0]);       // g0 g0 b0 b0 b0 b0 b0 b0  G0B0
-        p_block_3bytes_rgb666_18bit[j+1] = (uint8_t)(block_4bytes_rgb666_24bit[2] << 4) | (uint8_t)(block_4bytes_rgb666_24bit[1] >> 2);  // r0 r0 r0 r0 g0 g0 g0 g0  R0G0
-        p_block_3bytes_rgb666_18bit[j+2] = (uint8_t)(block_4bytes_rgb666_24bit[3] << 2) | (uint8_t)(block_4bytes_rgb666_24bit[2] >> 4);  // b1 b1 b1 b1 b1 b1 r0 r0  B1R0 
-
+#if (DEBUG_PRINT == 1)
+        printf("before: ");  
+        print_array(block_4bytes_rgb666_24bit, 4);
+#endif
+        // RGB666 24-bit (4 bytes)
+        // |7  6  5  4  3  2  1 0|
+        // |b0 b0 b0 b0 b0 b0 0 0|
+        // |g0 g0 g0 g0 g0 g0 0 0|
+        // |r0 r0 r0 r0 r0 r0 0 0|
+        // |b1 b1 b1 b1 b1 b1 0 0|
+        //
+        // Convert to RGB666 18-bit (3 bytes)
+        // |7  6  5  4  3  2  1  0 |
+        // |g0 g0.b0 b0 b0 b0 b0 b0|
+        // |r0 r0 r0 r0.g0 g0 g0 g0|
+        // |b1 b1 b1 b1 b1 b1.r0 r0|
+        //
+        p_block_3bytes_rgb666_18bit[j]   = (uint8_t)(block_4bytes_rgb666_24bit[1] << 4) | (uint8_t)(block_4bytes_rgb666_24bit[0] >> 2);  // g0 g0 b0 b0 b0 b0 b0 b0  G0B0
+        p_block_3bytes_rgb666_18bit[j+1] = (uint8_t)(block_4bytes_rgb666_24bit[2] << 2) | (uint8_t)(block_4bytes_rgb666_24bit[1] >> 4);  // r0 r0 r0 r0 g0 g0 g0 g0  R0G0
+        p_block_3bytes_rgb666_18bit[j+2] = (uint8_t)(block_4bytes_rgb666_24bit[3] << 0) | (uint8_t)(block_4bytes_rgb666_24bit[2] >> 6);  // b1 b1 b1 b1 b1 b1 r0 r0  B1R0
+#if (DEBUG_PRINT == 1)
+        printf("after : ");
+        print_array(&p_block_3bytes_rgb666_18bit[j], 3);
+#endif
         j += 3;
         i += 4;
         if(i >= input_size)
