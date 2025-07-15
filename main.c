@@ -1,22 +1,13 @@
-// $ gcc main.c logo_image_lvds.c -o logo_convert_color
-// $ ./logo_convert_color
+// $ gcc main.c array.c image_processing.c -o image_converter
+// $ ./image_converter
 
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include "array.h"
+#include "image_processing.h"
 
 #define SMALL_ARRAY_TEST (0)
-#define DEBUG_PRINT (0)
-
-//  31       23       15       7        0
-//  |________|________|________|________|
-//   00000000 bbbbbb00 gggggg00 rrrrrr00            RGB666 32-bit
-//            bbbbbb00 gggggg00 rrrrrr00            RGB666 24-bit
-//                  bb bbbbgggg ggrrrrrr            RGB666 18-bit
-#define RGB666_18BIT    0
-#define RGB666_24BIT    1
-#define RGB666_32BIT    2
-
 
 #if (SMALL_ARRAY_TEST == 0)
 extern const uint8_t __logo_img_dat_lvds[] __attribute__ ((aligned (256))); // 1280*800*4UL
@@ -45,151 +36,6 @@ const uint8_t sample_array[] __attribute__ ((aligned (256))) = {
 
 uint8_t output_buffer[1280*900*4] __attribute__ ((aligned (256))); // 1280*800*4UL = 4608000
 
-void print_array(const uint8_t * buffer, int size)
-{
-    const int group = 16;
-    int _size = size > 100 ? 100 : size; // set maximum print is 100 elements
-    for(int i = 0; i < _size; i++)
-    {
-        if( (i % group == 0) && (i > 0) )
-        {
-            printf("\n");
-        }
-        printf("0x%.2x ", buffer[i]);
-    }
-    printf("\n");
-}
-
-size_t cvt_argb8888_rgb888(const uint8_t * input_image, size_t input_size, uint8_t *output_image, uint8_t is_32bit_pixel)
-{
-    size_t output_size = 0;
-    int i = 0, j = 0;
-
-    if((!input_image) || (!output_image)) {
-        printf("[%s] NULL parameters.\n", __func__);
-    }
-    /* Convert data */
-    for(; i < input_size; i+=4)
-    {
-        output_image[j++] = input_image[i];
-        output_image[j++] = input_image[i+1];
-        output_image[j++] = input_image[i+2];
-        
-        if(is_32bit_pixel)
-        {
-            output_image[j++] = 0x00; // any value
-        }
-    }
-    output_size = j;
-    return output_size;
-}
-
-size_t process_rgb666_18bit(const uint8_t * input_image, size_t input_size, uint8_t *output_image)
-{
-    size_t output_size = 0;
-    int i = 0, j = 0;
-
-    if(input_size % 4)
-    {
-        printf("Error: Input size %ld bytes is not suitable\n", input_size);
-    }
-    
-    while(1)
-    {
-        /* Covert a block of 3 bytes of colors in ARGB8888 ignoring A plane to block of 3 bytes of colors in RGB666 */
-        uint8_t * p_block_3bytes_rgb666_18bit = output_image; // 4 pixels of RGB666 image = 4 * 18 = 72 bits = 9 bytes
-        uint8_t block_4bytes_rgb666_24bit[4];
-
-        memcpy((void*)block_4bytes_rgb666_24bit, (void*)&input_image[i], 4);
-
-#if (DEBUG_PRINT == 1)
-        printf("before: ");  
-        print_array(block_4bytes_rgb666_24bit, 4);
-#endif
-        // RGB666 24-bit (4 bytes)
-        // |7  6  5  4  3  2  1 0|
-        // |b0 b0 b0 b0 b0 b0 0 0|
-        // |g0 g0 g0 g0 g0 g0 0 0|
-        // |r0 r0 r0 r0 r0 r0 0 0|
-        // |b1 b1 b1 b1 b1 b1 0 0|
-        //
-        // Convert to RGB666 18-bit (3 bytes)
-        // |7  6  5  4  3  2  1  0 |
-        // |g0 g0.b0 b0 b0 b0 b0 b0|
-        // |r0 r0 r0 r0.g0 g0 g0 g0|
-        // |b1 b1 b1 b1 b1 b1.r0 r0|
-        //
-        p_block_3bytes_rgb666_18bit[j]   = (uint8_t)(block_4bytes_rgb666_24bit[1] << 4) | (uint8_t)(block_4bytes_rgb666_24bit[0] >> 2);  // g0 g0 b0 b0 b0 b0 b0 b0  G0B0
-        p_block_3bytes_rgb666_18bit[j+1] = (uint8_t)(block_4bytes_rgb666_24bit[2] << 2) | (uint8_t)(block_4bytes_rgb666_24bit[1] >> 4);  // r0 r0 r0 r0 g0 g0 g0 g0  R0G0
-        p_block_3bytes_rgb666_18bit[j+2] = (uint8_t)(block_4bytes_rgb666_24bit[3] << 0) | (uint8_t)(block_4bytes_rgb666_24bit[2] >> 6);  // b1 b1 b1 b1 b1 b1 r0 r0  B1R0
-#if (DEBUG_PRINT == 1)
-        printf("after : ");
-        print_array(&p_block_3bytes_rgb666_18bit[j], 3);
-#endif
-        j += 3;
-        i += 4;
-        if(i >= input_size)
-        {
-            break;
-        }
-    }
-
-    output_size = j;
-    return output_size;
-}
-
-size_t cvt_argb8888_rgb666(const uint8_t * input_image, size_t input_size, uint8_t *output_image, uint8_t select_type)
-{
-    size_t output_size = 0;
-    int i = 0, j = 0;
-
-    if((!input_image) || (!output_image)) {
-        printf("[%s] NULL parameters.\n", __func__);
-    }
-    /* Convert data */
-    for(; i < input_size; i+=4)
-    {
-        output_image[j++] = input_image[i]   & 0xFC;
-        output_image[j++] = input_image[i+1] & 0xFC;
-        output_image[j++] = input_image[i+2] & 0xFC;
-
-        if(select_type == RGB666_32BIT)
-        {
-            output_image[j++] = 0x00; // any value
-        }
-    }
-    output_size = j;
-
-    if(select_type == RGB666_18BIT)
-    {
-        input_size = j;
-        output_size = process_rgb666_18bit(output_image, input_size, output_image);
-    }
-
-    return output_size;
-}
-
-int saveBufferToFile(const uint8_t* buffer, size_t size, const char* filename)
-{
-    FILE *fp;
-    char saved_name[100] = "";
-    // const char *extension = ".bin";
-    size_t n = 0;
-    memset(saved_name, 0, 100);
-    
-    strcat(saved_name, filename);
-    // strcat(saved_name, extension);
-    
-    if(!(fp = fopen(saved_name, "wb"))) // Save as binay file
-    {
-        printf("[%s:%d] Error: Cannot open output file\n", __FILE__, __LINE__);
-        return (-1);
-    }
-    n = fwrite(buffer, 1 , size, fp);
-    fclose(fp);
-    printf("Save to %s file (%ld bytes)\n", saved_name, size);
-    return 0;
-}
 
 int main(int argc, char** argv)
 {
