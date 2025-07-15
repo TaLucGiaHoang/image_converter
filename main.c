@@ -7,9 +7,9 @@
 #include "array.h"
 #include "image_processing.h"
 
-#define SMALL_ARRAY_TEST (0)
+#define SELECT_TEST_CASE (0)
 
-#if (SMALL_ARRAY_TEST == 0)
+#if (SELECT_TEST_CASE == 0)
 extern const uint8_t __logo_img_dat_lvds[] __attribute__ ((aligned (256))); // 1280*800*4UL
 uint32_t __logo_img_dat_lvds_size = 1280*800*4UL;
 #endif
@@ -47,12 +47,12 @@ int main(int argc, char** argv)
     char file_name[100];
     
     
-#if (SMALL_ARRAY_TEST == 0)
+#if (SELECT_TEST_CASE == 0)
     p_input_image = __logo_img_dat_lvds;
     p_output_image = output_buffer;
     input_size = __logo_img_dat_lvds_size;  //sizeof(input);
     output_size = 4608000;  // 1280*800*4UL = 4608000
-#else // (SMALL_ARRAY_TEST == 1)
+#else // (SELECT_TEST_CASE == 1)
     p_input_image = sample_array;
     input_size = sizeof(sample_array);
     p_output_image = output_buffer;
