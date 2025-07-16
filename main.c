@@ -4,17 +4,18 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdlib.h>  // malloc()
 #include "array.h"
 #include "image_processing.h"
 
-#define SELECT_TEST_CASE (0)
+#define SELECT_TEST_CASE (0) // 0: constant image, 1: small array, 2: mono-color image (Red/Green/Blue)
 
 #if (SELECT_TEST_CASE == 0)
 extern const uint8_t __logo_img_dat_lvds[] __attribute__ ((aligned (256))); // 1280*800*4UL
 uint32_t __logo_img_dat_lvds_size = 1280*800*4UL;
 #endif
 
-const uint8_t sample_array[] __attribute__ ((aligned (256))) = {
+uint8_t sample_array[] __attribute__ ((aligned (256))) = {
     0xFF,0xFF,0xFF,0x00,
     0xFF,0xFF,0xFF,0x00,
     0xFF,0xFF,0xFF,0x00,
@@ -39,32 +40,40 @@ uint8_t output_buffer[1280*900*4] __attribute__ ((aligned (256))); // 1280*800*4
 
 int main(int argc, char** argv)
 {
-    const uint8_t *p_input_image;
+    uint8_t *p_input_image;
     uint8_t *p_output_image;
     size_t input_size;
     size_t output_size;
     size_t write_size = 0;
     char file_name[100];
     
-    
-#if (SELECT_TEST_CASE == 0)
-    p_input_image = __logo_img_dat_lvds;
-    p_output_image = output_buffer;
-    input_size = __logo_img_dat_lvds_size;  //sizeof(input);
-    output_size = 4608000;  // 1280*800*4UL = 4608000
-#else // (SELECT_TEST_CASE == 1)
-    p_input_image = sample_array;
-    input_size = sizeof(sample_array);
-    p_output_image = output_buffer;
-    output_size = input_size;
-#endif
-
+    /* Select input images */
     if(argc >= 2)
     {
         printf("Input file: %s\n", argv[1]);
         strcpy(file_name, argv[1]);
     }
+    else
+    {
+#if (SELECT_TEST_CASE == 0)
+    p_input_image = __logo_img_dat_lvds;
+    p_output_image = output_buffer;
+    input_size = __logo_img_dat_lvds_size;  //sizeof(input);
+    output_size = 4608000;  // 1280*800*4UL = 4608000
+#elif (SELECT_TEST_CASE == 1)
+    p_input_image = sample_array;
+    input_size = sizeof(sample_array);
+    p_output_image = output_buffer;
+    output_size = input_size;
+#else // (SELECT_TEST_CASE == 2)
+    p_input_image = (uint8_t*)malloc(4608000);
+    p_output_image = output_buffer;
+    input_size = 4608000;   // 1280*800*4UL = 4608000
+    output_size = 4608000;  // 1280*800*4UL = 4608000
 
+    generate_argb_image(p_input_image, input_size, 0xFFFFFFFF); // 0xFFFFFFFF: white
+#endif
+    }
 
     printf("Input Image (%ld bytes)\n", input_size);
     saveBufferToFile(p_input_image, input_size, "argb8888_32bit.raw");
