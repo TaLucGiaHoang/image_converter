@@ -129,7 +129,10 @@ size_t generate_argb_image(uint8_t * buffer, size_t size, uint32_t color)
     {
         printf("Warning: size=%ld bytes is not a multiple of 4.\n", size);
     }
-
+//#if (DEBUG_PRINT == 1)
+    printf("[%s] Create an array with color: 0x%.08x, ", __func__, color);
+    print_array(p_color, 4);
+//#endif
     for(int i = 0; i < size; i+=4)
     {
         buffer[i]   = p_color[0];
